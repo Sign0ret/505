@@ -20,11 +20,14 @@ export default function Home() {
   const [balance, setBalance] = useState(0);
   const [receiver, setReceiver] = useState(false);
   const [amount, setAmount] = useState(null);
+  const [explorerLink, setExplorerLink] = useState(null)
 
   useEffect(() => {
     let key = window.localStorage.getItem("publicKey");
     setPublicKey(key);
     if (key) getBalances(key);
+    if(explorerLink)
+    setExplorerLink(null);
   }, []);
 
   const handleReceiverChange = (event) => {
@@ -148,6 +151,9 @@ export default function Home() {
       });
       const { slot } = confirmation.value;
       console.info(`Transaccion con numero de id ${txid} confirmado en el bloque ${slot}`);
+      const solanaExplorerLink = `https://explorer.solana.com/tx/${txid}?cluster=${SOLANA_NETWORK}`; 
+      setExplorerLink(solanaExplorerLink);
+      
       toast.success("Transaccion enviada con exito");
 
       getBalances(publicKey);
@@ -190,6 +196,12 @@ export default function Home() {
           >
             Enviar
           </button>
+          <br></br>
+          <a href={explorerLink}>
+            <h1>{explorerLink}</h1>
+          </a>
+          <br></br>
+
           <button 
           type='submit'
           className='inline-flex h-8 w-52 justify-center bg-purple-500 font-bold text-white'
