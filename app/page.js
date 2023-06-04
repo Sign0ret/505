@@ -3,6 +3,7 @@ import Image from 'next/image'
 import styles from './page.module.css'
 import toast, {Toaster} from "react-hot-toast";
 import React, {useState, useEffect} from "react"
+
 import {
   Connection,
   SystemProgram,
@@ -12,6 +13,10 @@ import {
   clusterApiUrl,
   SendTransactionError,
 } from "@solana/web3.js";
+import { useStorageUpload } from "@thirdweb-dev/react";
+import { Erica_One } from 'next/font/google';
+
+import axios from "axios";
 
 const SOLANA_NETWORK = "devnet";
 
@@ -21,6 +26,9 @@ export default function Home() {
   const [receiver, setReceiver] = useState(false);
   const [amount, setAmount] = useState(null);
   const [explorerLink, setExplorerLink] = useState(null)
+  const [uploadUrl, setUploadUrl] = useState(null);
+  const [url, setUrl] = useState(null);
+  const [statusText, setStatusText] = useState("");
 
   useEffect(() => {
     let key = window.localStorage.getItem("publicKey");
@@ -42,7 +50,11 @@ export default function Home() {
     console.log("Este es el monto", amount);
     sendTransaction (publicKey, receiver, amount);
   }
-
+  const  handleUrlChange = (event) => {
+    setUrl(event.target.value);
+  };
+  
+  
   const signIn = async () => {
 
     const provider = window?.phantom?.solana;
@@ -159,13 +171,65 @@ export default function Home() {
       getBalances(publicKey);
       setAmount(null);
       setReceiver(null);
-      return;
+
+      return solanaExplorerLink;
+    
     } catch (error) {
       console.error("ERROR SEND TRANSACTION",error);
       toast.error("Error al enviar la transaccion");
     }
   }
+  const {mutateAsync: upload} = useStorageUpload();
+  const uploadToIpfs = async (file) => {
+    setStatusText("Subiendo archivo a IPFS");
+    const uploadUrl = await upload({
+      data: [file],
+      options: {
+        uploadWithGatewayUrl: true,
+        uploadWithoutDirectory: true,
+      },
+    });
+    return uploadUrl[0];
+  };
+  const urlToBlob = async (file) => {
+    setStatusText("Convirtiendo URL a Blob...");
+    await fetch(url)
+    .then((res) => res.blob())
+    .then((myBlob) => {
+      myBlob.name = "blob.png";
+      file = new File([myBlob], "image.png", {type: myBlob.type,});
+    });
+    const uploadUrl = await uploadToIpfs(file);
+    console.log("uploadURL", uploadUrl);
+    setStatusText(`La url de tu archivo en IPFS: ${uploadUrl}`);
+    setUploadUrl(uploadUrl);
+    return uploadUrl;
+  };
 
+  const generateNFT = async () => {
+    try {
+      setStatusText("Cerando tu NFT...");
+      const mintedData = {name: "pepe",
+      imageUrl: uploadUrl,
+      publicKey,
+    };
+    console.log("mintedData", mintedData);
+    
+    setStatusText(
+      "Minteando tu NFT en la blockchain Solana, Porfavor espera..."
+    );
+    const { data } = await axios.post("/api/mintnft", mintedData);
+    const { signature: newSignature } = data;
+    const solanaExplorerUrl = `https://solscan.io/tx/${newSignature}?cluster=${SOLANA_NETWORK}`;
+    console.log("solanaExplorerUrl", solanaExplorerUrl);
+    setStatusText(
+      "¡Listo! Tu NFT se ha creado, revisa tu Phantom Wallet"
+    );
+    } catch (error) {
+      console.error("ERROR GENERATE NFT",error);
+      toast.error("Error al generar el NFT");
+    }
+  };
   return (
     <div>
       <p>LOCOOOOO</p>
@@ -201,6 +265,44 @@ export default function Home() {
             <h1>{explorerLink}</h1>
           </a>
           <br></br>
+          <input
+            className='h-8 w-72 mt-4 border-2 border-black'
+            type="text"
+            onChange={handleUrlChange}
+          />
+          <button 
+          className='inline-flex h-8 w-52 justify-center bg-purple-500 font-bold text-white'
+          onClick={() => {
+            urlToBlob();
+          }}
+          >
+
+            Subir Archivo a IPFS
+          </button>
+          <p>{statusText}</p>
+
+          <br />
+          {uploadUrl? (
+            <button 
+            className='inline-flex h-8 w-52 justify-center bg-purple-500 font-bold text-white'
+            onClick={() => {
+              generateNFT();
+            }}
+            >
+            Crear NFT
+            </button>
+          ):(
+            <button 
+            className='inline-flex h-8 w-auto justify-center bg-purple-500 font-bold text-white'
+            onClick={() => {
+              console.log( "Primero");
+            }}
+            >
+            Primero sube una imagen a IPFS
+            </button>
+          )}
+          
+
 
           <button 
           type='submit'
