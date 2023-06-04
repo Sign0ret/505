@@ -131,11 +131,29 @@ export default function Home() {
           lamports: amount * LAMPORTS_PER_SOL,
         })
       );
-      await web3.sendAndConfirmTransaction(connection, transaction, [fromPubkey]);
-
-
-
       console.log("Esta es la transaccion",transaction);
+      const { blockhash } = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = fromPubkey;
+      // Firmamos
+      const transactionsignature = await provider.signTransaction(
+        transaction
+      );
+      const txid = await connection.sendRawTransaction(
+        transactionsignature.serialize()
+      );
+      console.info(`Transaccion con numero de id ${txid} enviada`);
+      const confirmation = await connection.confirmTransaction(txid, {
+        commitment: "singleGossip",
+      });
+      const { slot } = confirmation.value;
+      console.info(`Transaccion con numero de id ${txid} confirmado en el bloque ${slot}`);
+      toast.success("Transaccion enviada con exito");
+
+      getBalances(publicKey);
+      setAmount(null);
+      setReceiver(null);
+      return;
     } catch (error) {
       console.error("ERROR SEND TRANSACTION",error);
       toast.error("Error al enviar la transaccion");
